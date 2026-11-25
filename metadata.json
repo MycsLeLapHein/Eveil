@@ -1,0 +1,6 @@
+{
+  "name": "Éveil",
+  "description": "Réveil intelligent avec alarmes récurrentes, défis de réveil, sonneries synthétisées et suivi du sommeil.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": []
+}

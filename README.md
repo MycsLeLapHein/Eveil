@@ -1,11 +1,34 @@
-<div align="center">
+# Éveil
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Réveil intelligent et suivi du sommeil inspiré d’Alarmy, conçu dans une interface épurée (Clair, Sombre et Système) disponible en version web, en fichier `.html` autonome et en application Android `.apk`.
 
-  <h1>Built with AI Studio</h2>
+## Fonctionnalités
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+- **Alarmes récurrentes et ponctuelles** : sélection des jours de la semaine, rappel (snooze) avec limite configurable, volume progressif (crescendo) et alarme rapide `+1 min`.
+- **Défis de réveil obligatoires** : calcul mental, mémoire visuelle, secousses actives (accéléromètre ou rythme manuel), recopie lucide (sans copier-coller) et point de passage caméra/code.
+- **Vérification de réveil** : contrôle automatique après l’arrêt d’une alarme (délai configurable) avec compte à rebours de 60 secondes avant redéclenchement.
+- **Mode de suivi du sommeil** : chronométrage nocturne, ambiances d’endormissement minutées, détection locale optionnelle des pics sonores, graphique sur 7 nuits et journal des réveils.
+- **7 sonneries synthétisées localement** : utilisables hors ligne, routées sur le canal système **Alarme (`USAGE_ALARM`)** dans la version Android `.apk`.
+- **Apparence adaptative** : choix **Clair**, **Sombre** ou **Système** (suivi automatique du thème de l’appareil et couleur dynamique Material You sur Android 12+).
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Obtenir le fichier `.apk` Android automatiquement
 
-</div>
+Ce dépôt inclut le projet natif Android (`/android`) ainsi que le workflow GitHub Actions (`.github/workflows/build-apk.yml`) :
+
+1. Après avoir poussé le projet sur GitHub, ouvrez l’onglet **Actions**.
+2. Lancez ou ouvrez l’exécution **Build Éveil Android APK**.
+3. Téléchargez l’artefact **eveil-android-apk** et installez `app-debug.apk` sur votre téléphone Android.
+4. Au premier lancement, accordez les autorisations proposées (affichage au-dessus des autres applications, alarmes exactes et batterie sans restriction).
+
+## Lancer la version web localement
+
+```bash
+npm install
+npm run dev
+```
+
+Pour générer une build de production :
+
+```bash
+npm run build
+```

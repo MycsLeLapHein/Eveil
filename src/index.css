@@ -1,0 +1,92 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --bg-canvas: #FAF9F6;
+    --bg-subtle: #F2F0EA;
+    --ink-primary: #181816;
+    --ink-muted: #66645E;
+    --hairline: rgba(24, 24, 22, 0.1);
+    --accent: #C83A1E;
+  }
+
+  .dark {
+    --bg-canvas: #141413;
+    --bg-subtle: #1D1C1A;
+    --ink-primary: #F4F3EF;
+    --ink-muted: #9C9A92;
+    --hairline: rgba(244, 243, 239, 0.11);
+    --accent: #E25134;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--bg-canvas);
+    color: var(--ink-primary);
+    scroll-behavior: smooth;
+  }
+
+  .dark body {
+    letter-spacing: 0.01em;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom minimal range slider */
+input[type="range"].eveil-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  background: var(--hairline);
+  border-radius: 1px;
+  outline: none;
+}
+
+input[type="range"].eveil-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-canvas);
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+input[type="range"].eveil-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+}
+
+input[type="range"].eveil-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-canvas);
+}
