@@ -9,6 +9,7 @@ Réveil intelligent et suivi du sommeil inspiré d’Alarmy, conçu dans une int
 - **Vérification de réveil** : contrôle automatique après l’arrêt d’une alarme (délai configurable) avec compte à rebours de 60 secondes avant redéclenchement.
 - **Mode de suivi du sommeil** : chronométrage nocturne, ambiances d’endormissement minutées, détection locale optionnelle des pics sonores, graphique sur 7 nuits et journal des réveils.
 - **7 sonneries synthétisées localement** : utilisables hors ligne, routées sur le canal système **Alarme (`USAGE_ALARM`)** dans la version Android `.apk`.
+- **Vibration montre connectée** : relais d’impulsions toutes les 12 secondes vers les montres **Amazfit (Zepp)**, Garmin, Samsung Galaxy Watch, Xiaomi Mi Fitness, Fitbit et Wear OS (il suffit d’activer Éveil dans les notifications d’applications de votre montre).
 - **Apparence adaptative** : choix **Clair**, **Sombre** ou **Système** (suivi automatique du thème de l’appareil et couleur dynamique Material You sur Android 12+).
 
 ## Obtenir le fichier `.apk` Android automatiquement

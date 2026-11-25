@@ -351,6 +351,21 @@ export const AlarmEditorDrawer: React.FC<AlarmEditorDrawerProps> = ({
                   className="w-5 h-5 accent-[#C83A1E] cursor-pointer"
                 />
               </label>
+
+              <label className="flex items-center justify-between gap-4 py-1 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium">Vibrer sur montre connectée</div>
+                  <div className="text-xs text-[#66645E] dark:text-[#9C9A92]">
+                    Relais d’impulsions toutes les 12 s (Amazfit / Zepp, Garmin, Samsung, Xiaomi, Wear OS)
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={draft.watchVibration ?? true}
+                  onChange={(e) => setDraft({ ...draft, watchVibration: e.target.checked })}
+                  className="w-5 h-5 accent-[#C83A1E] cursor-pointer"
+                />
+              </label>
             </div>
           </section>
 

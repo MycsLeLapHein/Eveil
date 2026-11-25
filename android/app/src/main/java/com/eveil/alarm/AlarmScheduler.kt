@@ -52,6 +52,7 @@ object AlarmScheduler {
                     putExtra(AlarmForegroundService.EXTRA_RINGTONE, obj.optString("ringtone", "aube-carillon"))
                     putExtra(AlarmForegroundService.EXTRA_VOLUME, obj.optDouble("volume", 0.85).toFloat())
                     putExtra(AlarmForegroundService.EXTRA_CRESCENDO, obj.optBoolean("crescendo", true))
+                    putExtra(AlarmForegroundService.EXTRA_WATCH_VIBRATION, obj.optBoolean("watchVibration", true))
                 }
 
                 val pendingIntent = PendingIntent.getBroadcast(

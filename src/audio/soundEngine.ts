@@ -49,18 +49,26 @@ class SoundEngine {
 
   public startRingtone(
     id: RingtoneId,
-    options: { volume?: number; crescendo?: boolean; vibrate?: boolean } = {}
+    options: {
+      volume?: number;
+      crescendo?: boolean;
+      vibrate?: boolean;
+      watchVibration?: boolean;
+      label?: string;
+    } = {}
   ): void {
     this.stopRingtone();
     const targetVolume = Math.min(1, Math.max(0.15, options.volume ?? 0.8));
 
-    // Inside Android APK: route directly to native USAGE_ALARM (STREAM_ALARM)
+    // Inside Android APK: route directly to native USAGE_ALARM (STREAM_ALARM) + optional smartwatch relay
     if (
       startNativeAlarmSound(
         id,
         targetVolume,
         Boolean(options.crescendo),
-        Boolean(options.vibrate)
+        Boolean(options.vibrate),
+        Boolean(options.watchVibration),
+        options.label ?? 'Réveil'
       )
     ) {
       this.alarmActive = true;

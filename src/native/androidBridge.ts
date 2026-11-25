@@ -19,10 +19,13 @@ interface EveilAndroidNative {
     ringtoneId: string,
     volume: number,
     crescendo: boolean,
-    vibrate: boolean
+    vibrate: boolean,
+    watchVibration: boolean,
+    label: string
   ) => void;
   stopAlarmSound: () => void;
   playCheckChime: () => void;
+  testWatchVibration?: () => void;
   syncScheduledAlarms: (alarmsJson: string) => void;
   setSystemBarsTheme?: (isDark: boolean) => void;
   getSystemAccentHex?: (isDark: boolean) => string;
@@ -84,6 +87,7 @@ export function syncAlarmsWithAndroid(
         ringtone: a.ringtone,
         volume: a.volume,
         crescendo: a.crescendo,
+        watchVibration: a.watchVibration ?? true,
         triggerAtMs,
       };
     })
@@ -100,10 +104,19 @@ export function startNativeAlarmSound(
   ringtoneId: RingtoneId,
   volume: number,
   crescendo: boolean,
-  vibrate: boolean
+  vibrate: boolean,
+  watchVibration = true,
+  label = 'Réveil'
 ): boolean {
   if (!isAndroidApk()) return false;
-  window.EveilAndroid!.startAlarmSound(ringtoneId, volume, crescendo, vibrate);
+  window.EveilAndroid!.startAlarmSound(
+    ringtoneId,
+    volume,
+    crescendo,
+    vibrate,
+    watchVibration,
+    label
+  );
   return true;
 }
 
@@ -116,6 +129,12 @@ export function stopNativeAlarmSound(): boolean {
 export function playNativeCheckChime(): boolean {
   if (!isAndroidApk()) return false;
   window.EveilAndroid!.playCheckChime();
+  return true;
+}
+
+export function testNativeWatchVibration(): boolean {
+  if (!isAndroidApk() || !window.EveilAndroid?.testWatchVibration) return false;
+  window.EveilAndroid.testWatchVibration();
   return true;
 }
 

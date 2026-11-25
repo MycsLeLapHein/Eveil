@@ -204,16 +204,30 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun startAlarmSound(ringtoneId: String, volume: Float, crescendo: Boolean, vibrate: Boolean) {
+        fun startAlarmSound(
+            ringtoneId: String,
+            volume: Float,
+            crescendo: Boolean,
+            vibrate: Boolean,
+            watchVibration: Boolean,
+            label: String
+        ) {
             runOnUiThread {
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
             AlarmAudioPlayer.start(this@MainActivity, ringtoneId, volume, crescendo, vibrate)
+            if (watchVibration) {
+                WatchNotifier.startRingingPulses(
+                    this@MainActivity,
+                    label.ifBlank { "Réveil" }
+                )
+            }
         }
 
         @JavascriptInterface
         fun stopAlarmSound() {
             AlarmAudioPlayer.stop()
+            WatchNotifier.stop(this@MainActivity)
             val stopIntent = Intent(this@MainActivity, AlarmForegroundService::class.java).apply {
                 action = AlarmForegroundService.ACTION_STOP
             }
@@ -226,6 +240,20 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun playCheckChime() {
             AlarmAudioPlayer.playCheckChime()
+            WatchNotifier.sendSinglePulse(
+                this@MainActivity,
+                "Éveil · Vérification",
+                "Êtes-vous bien réveillé(e) ? Confirmez dans 60 s"
+            )
+        }
+
+        @JavascriptInterface
+        fun testWatchVibration() {
+            WatchNotifier.sendSinglePulse(
+                this@MainActivity,
+                "Éveil · Test montre",
+                "Vibration montre connectée opérationnelle"
+            )
         }
 
         @JavascriptInterface

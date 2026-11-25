@@ -40,6 +40,7 @@ export interface Alarm {
   maxSnoozes: number; // 0 = unlimited, else 1..5
   wakeUpCheck: boolean; // Alarmy Wake-Up Check after dismissal
   wakeUpCheckDelayMin: number; // Minutes after dismissal before check triggers
+  watchVibration?: boolean; // Relay vibration pulses to Amazfit / Garmin / Samsung / Wear OS smartwatches
   photoTargetColor?: string; // Optional reference color/label for photo/code mission
 }
 

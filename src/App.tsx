@@ -221,6 +221,8 @@ export default function App() {
       volume: alarm.volume,
       crescendo: alarm.crescendo,
       vibrate: true,
+      watchVibration: alarm.watchVibration ?? true,
+      label: alarm.label,
     });
     setRingingState({ alarm, snoozeCount, isTest });
   };
@@ -334,6 +336,7 @@ export default function App() {
       maxSnoozes: 2,
       wakeUpCheck: true,
       wakeUpCheckDelayMin: 3,
+      watchVibration: true,
     };
     setEditingAlarm({ alarm: suggested, isNew: true });
   };

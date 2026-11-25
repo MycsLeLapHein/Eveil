@@ -28,6 +28,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 AlarmForegroundService.EXTRA_CRESCENDO,
                 intent.getBooleanExtra(AlarmForegroundService.EXTRA_CRESCENDO, true)
             )
+            putExtra(
+                AlarmForegroundService.EXTRA_WATCH_VIBRATION,
+                intent.getBooleanExtra(AlarmForegroundService.EXTRA_WATCH_VIBRATION, true)
+            )
         }
         ContextCompat.startForegroundService(context, serviceIntent)
     }

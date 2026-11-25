@@ -19,6 +19,7 @@ class AlarmForegroundService : Service() {
         val action = intent?.action
         if (action == ACTION_STOP) {
             AlarmAudioPlayer.stop()
+            WatchNotifier.stop(this)
             releaseWakeLock()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -30,6 +31,7 @@ class AlarmForegroundService : Service() {
         val ringtone = intent?.getStringExtra(EXTRA_RINGTONE) ?: "aube-carillon"
         val volume = intent?.getFloatExtra(EXTRA_VOLUME, 0.85f) ?: 0.85f
         val crescendo = intent?.getBooleanExtra(EXTRA_CRESCENDO, true) ?: true
+        val watchVibration = intent?.getBooleanExtra(EXTRA_WATCH_VIBRATION, true) ?: true
 
         acquireWakeLock()
         createChannel()
@@ -69,6 +71,10 @@ class AlarmForegroundService : Service() {
             vibrate = true
         )
 
+        if (watchVibration) {
+            WatchNotifier.startRingingPulses(this, label)
+        }
+
         // Bring UI above other apps & lock screen immediately
         startActivity(fullScreenIntent)
 
@@ -77,6 +83,7 @@ class AlarmForegroundService : Service() {
 
     override fun onDestroy() {
         AlarmAudioPlayer.stop()
+        WatchNotifier.stop(this)
         releaseWakeLock()
         super.onDestroy()
     }
@@ -126,5 +133,6 @@ class AlarmForegroundService : Service() {
         const val EXTRA_RINGTONE = "extra_ringtone"
         const val EXTRA_VOLUME = "extra_volume"
         const val EXTRA_CRESCENDO = "extra_crescendo"
+        const val EXTRA_WATCH_VIBRATION = "extra_watch_vibration"
     }
 }

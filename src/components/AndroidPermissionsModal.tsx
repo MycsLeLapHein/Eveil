@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Smartphone, X } from 'lucide-react';
+import { Check, Smartphone, Watch, X } from 'lucide-react';
 import {
   AndroidPermissionStatus,
   getAndroidPermissions,
@@ -8,6 +8,7 @@ import {
   requestExactAlarmPermission,
   requestNotificationPermission,
   requestOverlayPermission,
+  testNativeWatchVibration,
 } from '../native/androidBridge';
 
 interface AndroidPermissionsModalProps {
@@ -17,6 +18,7 @@ interface AndroidPermissionsModalProps {
 export const AndroidPermissionsModal: React.FC<AndroidPermissionsModalProps> = ({ onClose }) => {
   const nativeMode = isAndroidApk();
   const [perms, setPerms] = useState<AndroidPermissionStatus | null>(() => getAndroidPermissions());
+  const [watchTestSent, setWatchTestSent] = useState(false);
 
   useEffect(() => {
     if (!nativeMode) return;
@@ -137,6 +139,32 @@ export const AndroidPermissionsModal: React.FC<AndroidPermissionsModalProps> = (
               )}
             </div>
           ))}
+        </div>
+
+        {/* Smartwatch Vibration Relay Section */}
+        <div className="pb-4 border-b border-black/10 dark:border-white/10 space-y-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-2 text-sm font-medium">
+              <Watch className="w-4 h-4 text-[#C83A1E] dark:text-[#E25134]" />
+              Montre connectée (Amazfit, Garmin, Samsung, Wear OS…)
+            </div>
+            {nativeMode && (
+              <button
+                type="button"
+                onClick={() => {
+                  testNativeWatchVibration();
+                  setWatchTestSent(true);
+                  window.setTimeout(() => setWatchTestSent(false), 3500);
+                }}
+                className="min-h-[36px] px-3 rounded-md border border-black/15 dark:border-white/15 hover:border-[#C83A1E] text-xs font-medium whitespace-nowrap shrink-0 transition-colors"
+              >
+                {watchTestSent ? 'Impulsion envoyée' : 'Tester la montre'}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-[#66645E] dark:text-[#9C9A92]">
+            À chaque alarme et vérification de réveil, Éveil envoie une alerte dédiée non persistante qui fait vibrer votre poignet toutes les 12 secondes jusqu’à la résolution du défi. Sur <strong>Amazfit (Zepp)</strong>, Garmin Connect, Galaxy Wearable ou Mi Fitness, activez simplement <strong>Éveil</strong> dans <em>Alertes d’applications</em>.
+          </p>
         </div>
 
         {!nativeMode && (
