@@ -7,6 +7,7 @@ import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -37,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        volumeControlStream = AudioManager.STREAM_ALARM
 
         // Allow Activity to wake screen and appear above lock screen when alarm fires
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -215,6 +217,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
+            AlarmForegroundService.stopIfRunning(this@MainActivity)
             AlarmAudioPlayer.start(this@MainActivity, ringtoneId, volume, crescendo, vibrate)
             if (watchVibration) {
                 WatchNotifier.startRingingPulses(
@@ -228,10 +231,7 @@ class MainActivity : AppCompatActivity() {
         fun stopAlarmSound() {
             AlarmAudioPlayer.stop()
             WatchNotifier.stop(this@MainActivity)
-            val stopIntent = Intent(this@MainActivity, AlarmForegroundService::class.java).apply {
-                action = AlarmForegroundService.ACTION_STOP
-            }
-            startService(stopIntent)
+            AlarmForegroundService.stopIfRunning(this@MainActivity)
             runOnUiThread {
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }

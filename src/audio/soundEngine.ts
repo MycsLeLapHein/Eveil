@@ -57,7 +57,6 @@ class SoundEngine {
       label?: string;
     } = {}
   ): void {
-    this.stopRingtone();
     const targetVolume = Math.min(1, Math.max(0.15, options.volume ?? 0.8));
 
     // Inside Android APK: route directly to native USAGE_ALARM (STREAM_ALARM) + optional smartwatch relay
@@ -71,35 +70,46 @@ class SoundEngine {
         options.label ?? 'Réveil'
       )
     ) {
+      this.clearWebTimersOnly();
       this.alarmActive = true;
       this.activeRingtone = id;
       return;
     }
 
+    this.stopRingtone();
     const ctx = this.ensureContext();
     if (!this.masterGain) return;
-
-    const now = ctx.currentTime;
-    this.masterGain.gain.cancelScheduledValues(now);
-
-    if (options.crescendo) {
-      this.masterGain.gain.setValueAtTime(0.08, now);
-      this.masterGain.gain.linearRampToValueAtTime(targetVolume, now + 18);
-    } else {
-      this.masterGain.gain.setValueAtTime(targetVolume, now);
-    }
 
     this.alarmActive = true;
     this.activeRingtone = id;
 
-    const triggerPattern = () => {
+    const beginWebPlayback = () => {
       if (!this.alarmActive || !this.ctx || !this.masterGain) return;
-      this.scheduleRingtoneCycle(id, this.ctx, this.masterGain);
+      const now = this.ctx.currentTime;
+      this.masterGain.gain.cancelScheduledValues(now);
+      if (options.crescendo) {
+        this.masterGain.gain.setValueAtTime(0.12, now);
+        this.masterGain.gain.linearRampToValueAtTime(targetVolume, now + 18);
+      } else {
+        this.masterGain.gain.value = targetVolume;
+        this.masterGain.gain.setValueAtTime(targetVolume, now);
+      }
+
+      const triggerPattern = () => {
+        if (!this.alarmActive || !this.ctx || !this.masterGain) return;
+        this.scheduleRingtoneCycle(id, this.ctx, this.masterGain);
+      };
+
+      const cycleMs = this.getCycleDurationMs(id);
+      triggerPattern();
+      this.alarmInterval = window.setInterval(triggerPattern, cycleMs);
     };
 
-    const cycleMs = this.getCycleDurationMs(id);
-    triggerPattern();
-    this.alarmInterval = window.setInterval(triggerPattern, cycleMs);
+    if (ctx.state === 'suspended') {
+      void ctx.resume().then(beginWebPlayback);
+    } else {
+      beginWebPlayback();
+    }
 
     if (options.vibrate && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       const pulse = () => {
@@ -114,10 +124,7 @@ class SoundEngine {
     }
   }
 
-  public stopRingtone(): void {
-    this.alarmActive = false;
-    this.activeRingtone = null;
-    stopNativeAlarmSound();
+  private clearWebTimersOnly(): void {
     if (this.alarmInterval !== null) {
       window.clearInterval(this.alarmInterval);
       this.alarmInterval = null;
@@ -126,6 +133,13 @@ class SoundEngine {
       window.clearInterval(this.vibrateInterval);
       this.vibrateInterval = null;
     }
+  }
+
+  public stopRingtone(): void {
+    this.alarmActive = false;
+    this.activeRingtone = null;
+    stopNativeAlarmSound();
+    this.clearWebTimersOnly();
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(0);

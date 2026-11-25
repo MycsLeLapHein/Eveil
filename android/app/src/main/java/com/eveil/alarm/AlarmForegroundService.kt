@@ -14,18 +14,22 @@ import androidx.core.app.NotificationCompat
 class AlarmForegroundService : Service() {
 
     private var wakeLock: PowerManager.WakeLock? = null
+    private var ownedAudioSession: Int? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         if (action == ACTION_STOP) {
-            AlarmAudioPlayer.stop()
+            AlarmAudioPlayer.stop(ownedAudioSession)
+            ownedAudioSession = null
             WatchNotifier.stop(this)
             releaseWakeLock()
+            isRunning = false
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
 
+        isRunning = true
         val alarmId = intent?.getStringExtra(EXTRA_ALARM_ID) ?: ""
         val label = intent?.getStringExtra(EXTRA_LABEL) ?: "Réveil"
         val ringtone = intent?.getStringExtra(EXTRA_RINGTONE) ?: "aube-carillon"
@@ -63,7 +67,7 @@ class AlarmForegroundService : Service() {
 
         startForeground(NOTIFICATION_ID, notification)
 
-        AlarmAudioPlayer.start(
+        ownedAudioSession = AlarmAudioPlayer.start(
             context = this,
             ringtoneId = ringtone,
             volume = volume,
@@ -82,8 +86,9 @@ class AlarmForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        AlarmAudioPlayer.stop()
-        WatchNotifier.stop(this)
+        isRunning = false
+        AlarmAudioPlayer.stop(ownedAudioSession)
+        ownedAudioSession = null
         releaseWakeLock()
         super.onDestroy()
     }
@@ -97,7 +102,7 @@ class AlarmForegroundService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "Eveil::AlarmWakeLock"
         ).apply {
-            acquire(10 * 60 * 1000L) // max 10 min safety timeout
+            acquire(10 * 60 * 1000L)
         }
     }
 
@@ -117,7 +122,7 @@ class AlarmForegroundService : Service() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Déclenchement des alarmes en plein écran"
-            setSound(null, null) // Sound played directly via AlarmAudioPlayer on USAGE_ALARM
+            setSound(null, null)
             enableVibration(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
@@ -125,6 +130,9 @@ class AlarmForegroundService : Service() {
     }
 
     companion object {
+        @Volatile
+        var isRunning: Boolean = false
+
         const val CHANNEL_ID = "eveil_alarm_channel"
         const val NOTIFICATION_ID = 4201
         const val ACTION_STOP = "com.eveil.alarm.ACTION_STOP"
@@ -134,5 +142,14 @@ class AlarmForegroundService : Service() {
         const val EXTRA_VOLUME = "extra_volume"
         const val EXTRA_CRESCENDO = "extra_crescendo"
         const val EXTRA_WATCH_VIBRATION = "extra_watch_vibration"
+
+        fun stopIfRunning(context: Context) {
+            if (!isRunning) return
+            isRunning = false
+            try {
+                context.stopService(Intent(context, AlarmForegroundService::class.java))
+            } catch (_: Exception) {
+            }
+        }
     }
 }

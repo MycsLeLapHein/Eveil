@@ -2,6 +2,7 @@ package com.eveil.alarm
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
@@ -9,6 +10,7 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.exp
@@ -17,13 +19,21 @@ import kotlin.math.sin
 /**
  * Synthesizes Éveil ringtones directly on Android's native USAGE_ALARM stream (STREAM_ALARM),
  * so alarms ring at the dedicated Alarm volume even when Media volume is muted or phone is silent.
+ * Uses session tokens and small PCM chunks so starting a new ringtone can never be interrupted
+ * by a previous stop call.
  */
 object AlarmAudioPlayer {
+    private val sessionCounter = AtomicInteger(0)
+    private val lock = Any()
+
     @Volatile
-    private var isPlaying = false
-    private var playbackThread: Thread? = null
     private var activeTrack: AudioTrack? = null
+    @Volatile
     private var vibrator: Vibrator? = null
+    @Volatile
+    private var focusRequest: AudioFocusRequest? = null
+    @Volatile
+    private var audioManagerRef: AudioManager? = null
 
     fun start(
         context: Context,
@@ -31,22 +41,25 @@ object AlarmAudioPlayer {
         volume: Float = 0.85f,
         crescendo: Boolean = true,
         vibrate: Boolean = true
-    ) {
-        stop()
-        isPlaying = true
+    ): Int {
+        val mySession = sessionCounter.incrementAndGet()
+        releasePreviousResources()
 
-        if (vibrate) {
-            startVibration(context)
-        }
-
+        val appCtx = context.applicationContext
         val sampleRate = 44100
         val cyclePcm = generateCyclePcm(ringtoneId, sampleRate)
-        val clampedTarget = volume.coerceIn(0.15f, 1.0f)
+        val clampedTarget = volume.coerceIn(0.2f, 1.0f)
 
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
+
+        requestAlarmAudioFocus(appCtx, attributes)
+
+        if (vibrate) {
+            startVibration(appCtx)
+        }
 
         val format = AudioFormat.Builder()
             .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
@@ -58,7 +71,7 @@ object AlarmAudioPlayer {
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT
-        ).coerceAtLeast(sampleRate / 2)
+        ).coerceAtLeast(8192)
 
         val track = AudioTrack.Builder()
             .setAudioAttributes(attributes)
@@ -67,29 +80,64 @@ object AlarmAudioPlayer {
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
 
-        activeTrack = track
-        val initialVol = if (crescendo) 0.12f else clampedTarget
+        synchronized(lock) {
+            if (sessionCounter.get() != mySession) {
+                try {
+                    track.release()
+                } catch (_: Exception) {
+                }
+                return mySession
+            }
+            activeTrack = track
+        }
+
+        val initialVol = if (crescendo) 0.18f else clampedTarget
         track.setVolume(initialVol)
         track.play()
 
         val startTime = System.currentTimeMillis()
-        playbackThread = thread(start = true, name = "EveilAlarmAudio") {
+        val chunkSize = 4096
+
+        thread(start = true, name = "EveilAlarmAudio-$mySession") {
             try {
-                while (isPlaying) {
+                var offset = 0
+                while (sessionCounter.get() == mySession) {
                     if (crescendo) {
-                        val elapsedSec = (System.currentTimeMillis() - startTime) / 18000f
-                        val currentVol = (0.12f + (clampedTarget - 0.12f) * elapsedSec.coerceIn(0f, 1f))
+                        val elapsedFraction = ((System.currentTimeMillis() - startTime) / 18000f).coerceIn(0f, 1f)
+                        val currentVol = 0.18f + (clampedTarget - 0.18f) * elapsedFraction
                         try {
                             track.setVolume(currentVol)
                         } catch (_: Exception) {
                         }
                     }
-                    track.write(cyclePcm, 0, cyclePcm.size)
+                    val toWrite = minOf(chunkSize, cyclePcm.size - offset)
+                    val written = track.write(cyclePcm, offset, toWrite)
+                    if (written < 0) break
+                    offset += toWrite
+                    if (offset >= cyclePcm.size) offset = 0
                 }
             } catch (_: Exception) {
-                // Playback interrupted by stop()
+                // Playback ended by stop()
+            } finally {
+                try {
+                    track.pause()
+                    track.flush()
+                    track.stop()
+                } catch (_: Exception) {
+                }
+                try {
+                    track.release()
+                } catch (_: Exception) {
+                }
+                synchronized(lock) {
+                    if (activeTrack === track) {
+                        activeTrack = null
+                    }
+                }
             }
         }
+
+        return mySession
     }
 
     fun playCheckChime() {
@@ -97,8 +145,8 @@ object AlarmAudioPlayer {
             val sampleRate = 44100
             val totalSamples = (sampleRate * 0.75).toInt()
             val pcm = ShortArray(totalSamples)
-            addTone(pcm, sampleRate, 659.25, 0.0, 0.30, 0.35, "sine")
-            addTone(pcm, sampleRate, 880.0, 0.20, 0.45, 0.35, "sine")
+            addTone(pcm, sampleRate, 659.25, 0.0, 0.30, 0.45, "sine")
+            addTone(pcm, sampleRate, 880.0, 0.20, 0.45, 0.45, "sine")
 
             val attributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
@@ -117,7 +165,7 @@ object AlarmAudioPlayer {
                 .build()
             try {
                 track.write(pcm, 0, pcm.size)
-                track.setVolume(0.65f)
+                track.setVolume(0.75f)
                 track.play()
                 Thread.sleep(820)
             } catch (_: Exception) {
@@ -131,23 +179,54 @@ object AlarmAudioPlayer {
         }
     }
 
-    fun stop() {
-        isPlaying = false
-        try {
-            activeTrack?.pause()
-            activeTrack?.flush()
-            activeTrack?.stop()
-            activeTrack?.release()
-        } catch (_: Exception) {
+    fun stop(onlyIfSession: Int? = null) {
+        if (onlyIfSession != null && sessionCounter.get() != onlyIfSession) {
+            return
         }
-        activeTrack = null
-        playbackThread = null
+        sessionCounter.incrementAndGet()
+        releasePreviousResources()
+    }
+
+    private fun releasePreviousResources() {
+        synchronized(lock) {
+            try {
+                activeTrack?.pause()
+                activeTrack?.flush()
+                activeTrack?.stop()
+            } catch (_: Exception) {
+            }
+            activeTrack = null
+        }
 
         try {
             vibrator?.cancel()
         } catch (_: Exception) {
         }
         vibrator = null
+
+        try {
+            val am = audioManagerRef
+            val req = focusRequest
+            if (am != null && req != null) {
+                am.abandonAudioFocusRequest(req)
+            }
+        } catch (_: Exception) {
+        }
+        focusRequest = null
+    }
+
+    private fun requestAlarmAudioFocus(context: Context, attrs: AudioAttributes) {
+        try {
+            val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManagerRef = am
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+                .setAudioAttributes(attrs)
+                .setWillPauseWhenDucked(false)
+                .build()
+            focusRequest = req
+            am.requestAudioFocus(req)
+        } catch (_: Exception) {
+        }
     }
 
     fun getAlarmVolumePercent(context: Context): Int {
@@ -190,14 +269,13 @@ object AlarmAudioPlayer {
         when (ringtoneId) {
             "braun-bip" -> {
                 listOf(0.0, 0.16, 0.32, 0.48).forEach { t ->
-                    addTone(buf, sr, 2048.0, t, 0.09, 0.28, "square")
+                    addTone(buf, sr, 2048.0, t, 0.09, 0.40, "square")
                 }
             }
             "sirene-intense" -> {
-                val startIdx = 0
                 val endIdx = (sr * 1.12).toInt().coerceAtMost(buf.size)
                 var phase = 0.0
-                for (i in startIdx until endIdx) {
+                for (i in 0 until endIdx) {
                     val t = i.toDouble() / sr
                     val freq = if (t < 0.48) {
                         780.0 + (1420.0 - 780.0) * (t / 0.48)
@@ -205,39 +283,39 @@ object AlarmAudioPlayer {
                         1420.0 - (1420.0 - 780.0) * ((t - 0.48) / 0.64).coerceIn(0.0, 1.0)
                     }
                     phase += 2.0 * PI * freq / sr
-                    val raw = if (sin(phase) >= 0) 0.38 else -0.38
+                    val raw = if (sin(phase) >= 0) 0.48 else -0.48
                     buf[i] = (raw * Short.MAX_VALUE).toInt().toShort()
                 }
             }
             "clairiere" -> {
                 listOf(392.0, 493.88, 587.33).forEachIndexed { i, f ->
-                    addTone(buf, sr, f, i * 0.14, 1.30, 0.22, "sine")
+                    addTone(buf, sr, f, i * 0.14, 1.30, 0.32, "sine")
                 }
                 listOf(440.0, 523.25, 659.25).forEachIndexed { i, f ->
-                    addTone(buf, sr, f, 1.20 + i * 0.14, 1.30, 0.22, "sine")
+                    addTone(buf, sr, f, 1.20 + i * 0.14, 1.30, 0.32, "sine")
                 }
             }
             "radar-pulse" -> {
                 listOf(0.0 to 987.77, 0.22 to 987.77, 0.44 to 1318.5).forEach { (t, f) ->
-                    addTone(buf, sr, f, t, 0.16, 0.38, "triangle")
+                    addTone(buf, sr, f, t, 0.16, 0.48, "triangle")
                 }
             }
             "cloche-bronze" -> {
-                addTone(buf, sr, 329.63, 0.0, 2.3, 0.40, "sine")
-                addTone(buf, sr, 659.25, 0.0, 1.8, 0.22, "sine")
-                addTone(buf, sr, 995.0, 0.0, 1.2, 0.14, "sine")
+                addTone(buf, sr, 329.63, 0.0, 2.3, 0.50, "sine")
+                addTone(buf, sr, 659.25, 0.0, 1.8, 0.28, "sine")
+                addTone(buf, sr, 995.0, 0.0, 1.2, 0.18, "sine")
             }
             "fanfare-matin" -> {
-                addTone(buf, sr, 392.0, 0.0, 0.20, 0.30, "triangle")
-                addTone(buf, sr, 523.25, 0.22, 0.20, 0.30, "triangle")
-                addTone(buf, sr, 659.25, 0.44, 0.22, 0.30, "triangle")
-                addTone(buf, sr, 783.99, 0.70, 0.65, 0.34, "triangle")
+                addTone(buf, sr, 392.0, 0.0, 0.20, 0.40, "triangle")
+                addTone(buf, sr, 523.25, 0.22, 0.20, 0.40, "triangle")
+                addTone(buf, sr, 659.25, 0.44, 0.22, 0.40, "triangle")
+                addTone(buf, sr, 783.99, 0.70, 0.65, 0.45, "triangle")
             }
             else -> {
                 // aube-carillon
                 listOf(523.25, 659.25, 783.99, 987.77, 1174.66).forEachIndexed { i, f ->
-                    addTone(buf, sr, f, i * 0.22, 0.72, 0.30, "sine")
-                    addTone(buf, sr, f * 2.0, i * 0.22, 0.35, 0.08, "triangle")
+                    addTone(buf, sr, f, i * 0.22, 0.72, 0.42, "sine")
+                    addTone(buf, sr, f * 2.0, i * 0.22, 0.35, 0.12, "triangle")
                 }
             }
         }
